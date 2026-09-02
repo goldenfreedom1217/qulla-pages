@@ -207,8 +207,14 @@ h3.sect .tally{margin-left:auto;font-family:var(--mono);font-size:12px;
 .qana li b{color:var(--ink)}
 .qidx{grid-column:1/-1}
 @media (max-width:640px){
+  /* ⚠ .qwrap 只寫 justify-self:center 會塌掉 —— 它是 grid 項目，置中等於
+     收縮到內容寬度，而 .qbox 裡面全是絕對定位的格子，沒有內在寬度，
+     結果整張圖被壓成一百多 px、四格的字全部疊在一起。
+     一定要同時給寬度，max-width 才有東西可以限制。 */
   .qmain{grid-template-columns:1fr;gap:12px}
-  .qwrap{justify-self:center}
+  .qwrap{justify-self:stretch;width:100%;max-width:340px;margin:0 auto}
+  .qbox{max-width:none;width:100%}
+  .qidx{grid-template-columns:repeat(2,1fr)}
 }
 
 .qbox::before,.qbox::after{content:"";position:absolute;background:var(--line)}

@@ -192,7 +192,9 @@ h3.sect .tally{margin-left:auto;font-family:var(--mono);font-size:12px;
 /* ⚠ 中日韓文字在 writing-mode:vertical-rl 下本來就會直立排好，
    再加 transform:rotate(180deg) 會把每個字翻成上下顛倒 ——
    那個 rotate 是給拉丁字母用的，中文不需要。 */
-.qyl{writing-mode:vertical-rl;text-align:center;
+/* ⚠ 直排時瀏覽器預設會把箭頭類字元轉 90 度（↑ 變成 →）。
+   text-orientation:upright 讓所有字元維持直立，箭頭才會朝上。 */
+.qyl{writing-mode:vertical-rl;text-orientation:upright;text-align:center;
   font-size:12px;font-weight:700;color:var(--ink);letter-spacing:.08em}
 .qbox{position:relative;aspect-ratio:1.25/1;max-width:300px;
   border:1px solid var(--line);border-radius:9px;overflow:hidden;
@@ -217,7 +219,9 @@ h3.sect .tally{margin-left:auto;font-family:var(--mono);font-size:12px;
   .qmain{grid-template-columns:1fr;gap:12px}
   .qwrap{justify-self:stretch;width:100%;max-width:340px;margin:0 auto}
   .qbox{max-width:none;width:100%}
-  .qidx{grid-template-columns:repeat(2,1fr)}
+  /* ⚠ 用 .quad .qidx 而不是 .qidx —— 後面還有一條 .qidx 規則，
+     同權重時寫在後面的會贏，這條媒體查詢就永遠不生效。 */
+  .quad .qidx{grid-template-columns:repeat(2,1fr)}
 }
 
 .qbox::before,.qbox::after{content:"";position:absolute;background:var(--line)}

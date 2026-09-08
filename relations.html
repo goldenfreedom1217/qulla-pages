@@ -596,9 +596,36 @@ var REL = {"built": "2026-09-09 01:47", "asof": "2026-09-08", "nodes": [{"id": "
   });
   window.addEventListener("resize", fit);
   fit(); table();
-  // 開場先站在連結最多的那一檔，讓人一進來就看得到東西
-  var first = N.filter(function(n){ return n.t === "個股"; })[0];
-  if(first) show(first.id, {nodim:true});
+  // 網址帶 ?th=題材 時直接定位到那個題材（主頁的討論度快捷會這樣叫）。
+  // ⚠ 找不到完全相同的名字時退回**部分比對**，再退回搜尋 ——
+  //   討論度用的題材名不一定跟圖上的節點一字不差。
+  var want = (function(){
+    var m = /[?&]th=([^&]+)/.exec(location.search);
+    return m ? decodeURIComponent(m[1].replace(/\+/g, " ")) : "";
+  })();
+  if(want){
+    var hit = byId["t:" + want];
+    if(!hit){
+      hit = N.filter(function(n){
+        return n.t === "題材" &&
+          (n.n.indexOf(want) >= 0 || want.indexOf(n.n) >= 0);
+      }).sort(function(a, b){ return b.deg - a.deg; })[0];
+    }
+    if(hit){
+      show(hit.id, {center: true});
+      view.s = 1.6; draw();
+    } else {
+      var q0 = document.getElementById("q");
+      q0.value = want; q0.dispatchEvent(new Event("input"));
+      document.getElementById("side").innerHTML =
+        "<div class='empty'>圖上還沒有「" + esc(want) + "」這個題材的節點" +
+        "（還沒收到談它的報告）。下面的明細表已用它過濾。</div>";
+    }
+  } else {
+    // 開場先站在連結最多的那一檔，讓人一進來就看得到東西
+    var first = N.filter(function(n){ return n.t === "個股"; })[0];
+    if(first) show(first.id, {nodim:true});
+  }
 })();
 </script>
 </body>

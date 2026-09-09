@@ -157,6 +157,17 @@ td.q{color:var(--dim);min-width:260px}
 .dchip b{color:var(--ink)}
 .dchip i{font-style:normal;color:var(--dim);font-size:11px;margin-left:4px}
 .dnone{font-size:12.5px;color:var(--dim)}
+/* ⚠ 使用者 2026-09-09：「顯示中心點時，表示最嚴重」——
+   所以中心的實心點只有第 3 級才點亮，1~2 級是空心靶。 */
+.nums i.sup .tgt{display:inline-block;width:3px;height:3px;border-radius:50%;
+  background:transparent;vertical-align:middle;margin-left:7px}
+.nums i.sup .tgt.t3{background:currentColor}
+.nums i.sup .tgt.t1{box-shadow:0 0 0 1.5px transparent,0 0 0 2.6px currentColor;margin-right:2px}
+.nums i.sup .tgt.t2{box-shadow:0 0 0 1.5px transparent,0 0 0 2.6px currentColor,
+  0 0 0 4.1px transparent,0 0 0 5.2px currentColor;margin-right:4px}
+.nums i.sup .tgt.t3{box-shadow:0 0 0 1.5px transparent,0 0 0 2.6px currentColor,
+  0 0 0 4.1px transparent,0 0 0 5.2px currentColor,
+  0 0 0 6.7px transparent,0 0 0 7.8px currentColor;margin-right:7px}
 </style>
 </head>
 <body>
@@ -259,7 +270,7 @@ var REL = {"built": "2026-09-09 09:47", "asof": "2026-09-08", "nodes": [{"id": "
       .map(function(x){ return "<span><i style='background:"+css(x[1])+"'></i>"+x[0]+"</span>"; })
       .join("") +
     "<span>↑ 上游供應商　↓ 下游客戶　↔ 同業　⊂ 所屬題材</span>" +
-    "<span>紅圈＝缺貨　琥珀圈＝漲價　圈越粗越緊（⚠ 數字是題材緊張度 0~100）</span>" +
+    "<span>紅＝缺貨　琥珀＝漲價　<b>圈數＝程度</b>，<b>點亮靶心＝最嚴重</b>　⚠ 數字是題材緊張度 0~100</span>" +
     "<span>連線顏色：<i style='background:"+css("--sup")+"'></i>供應鏈"+
     "<i style='background:"+css("--cmp")+"'></i>競爭"+
     "<i style='background:"+css("--thm")+"'></i>題材</span>";
@@ -440,16 +451,27 @@ var REL = {"built": "2026-09-09 09:47", "asof": "2026-09-08", "nodes": [{"id": "
       var lv = 0, isPr = false;
       if(n.sup){ lv = n.sup.lv; isPr = (n.sup.k === "漲"); }
       else if(n.tension){ lv = n.tension >= 70 ? 3 : n.tension >= 45 ? 2 : 1; }
-      if(lv && on){
+      if(lv){
+        // ⚠ 使用者 2026-09-09：「環越粗越緊>>用圓圈數量顯示比較能懂」。
+        //   改成同心圓的**圈數**＝程度（1~3 圈），粗細固定 ——
+        //   粗細要兩個圈擺在一起才比得出來，數量用數的就知道。
         ctx.strokeStyle = isPr ? css("--gold") : css("--cmp");
-        ctx.lineWidth = lv;
-        ctx.beginPath(); ctx.arc(p.x, p.y, r + 2.5, 0, 6.2832); ctx.stroke();
-        if(lv >= 3){
-          ctx.globalAlpha = on ? .45 : .06;
-          ctx.lineWidth = 1.5;
-          ctx.beginPath(); ctx.arc(p.x, p.y, r + 5.5, 0, 6.2832); ctx.stroke();
-          ctx.globalAlpha = on ? 1 : .13;
+        ctx.lineWidth = 1.6;
+        for(var ri = 0; ri < lv; ri++){
+          ctx.globalAlpha = on ? (1 - ri * 0.16) : .07;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, r + 3 + ri * 3.4, 0, 6.2832);
+          ctx.stroke();
         }
+        // ⚠ 使用者 2026-09-09：「顯示中心點時，表示最嚴重」——
+        //   靶心只有第 3 級（緊張度 >=70）才點亮。
+        if(lv >= 3){
+          ctx.globalAlpha = on ? 1 : .13;
+          ctx.fillStyle = isPr ? css("--gold") : css("--cmp");
+          ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(1.6, r * 0.34), 0, 6.2832);
+          ctx.fill();
+        }
+        ctx.globalAlpha = on ? 1 : .13;
       }
       if(hit || n.id === sel || n.id === hot){
         ctx.lineWidth = 2.5; ctx.strokeStyle = css("--gold"); ctx.stroke();
@@ -459,7 +481,7 @@ var REL = {"built": "2026-09-09 09:47", "asof": "2026-09-08", "nodes": [{"id": "
       var big = (near ? near[n.id] : (n.deg >= 4 || view.s > 1.3))
                 || hit || n.id === sel;
       if(big && on){
-        var tag = n.sup ? ("　" + n.sup.k + "●●●".slice(0, n.sup.lv))
+        var tag = n.sup ? ("　" + n.sup.k)   // 程度靠外圈的圈數，不重複
                 : (n.tension ? ("　⚠" + n.tension) : "");
         ctx.font = "600 " + Math.min(13, 10 + view.s) + "px system-ui,sans-serif";
         ctx.textAlign = "center";
@@ -508,7 +530,7 @@ var REL = {"built": "2026-09-09 09:47", "asof": "2026-09-08", "nodes": [{"id": "
     if(n.sup){
       // 缺／漲與程度（來自 supply.json，題材層級的緊張度掛到成員身上）
       out.push("<i class='sup" + (n.sup.k === "漲" ? " pr" : "") + "'>" +
-        n.sup.k + "●●●".slice(0, n.sup.lv) + "</i>");
+        n.sup.k + "<b class='tgt t" + n.sup.lv + "'></b></i>");
     }
     if(n.ox){
       out.push("60分K " + String(n.ox).split("").map(function(ch){

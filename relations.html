@@ -79,8 +79,6 @@ canvas.drag{cursor:grabbing}
 .nums i.o{color:var(--cmp)}
 .nums i.x{color:var(--sup)}
 .nums i.yj{color:var(--gold);font-weight:700}
-.nums i.sup{color:#fff;background:var(--cmp);border-radius:4px;padding:0 5px;font-weight:700;font-size:11px}
-.nums i.sup.pr{background:var(--gold)}
 .rel .s{font-size:11px;color:var(--dim);margin-top:2px;font-variant-numeric:tabular-nums}
 .tag{font-size:11px;color:var(--dim);border:1px solid var(--line);border-radius:5px;padding:0 5px}
 table{width:100%;border-collapse:collapse;font-size:12.5px}
@@ -157,17 +155,22 @@ td.q{color:var(--dim);min-width:260px}
 .dchip b{color:var(--ink)}
 .dchip i{font-style:normal;color:var(--dim);font-size:11px;margin-left:4px}
 .dnone{font-size:12.5px;color:var(--dim)}
-/* ⚠ 使用者 2026-09-09：「外圈, 第二環, 中心點」——
+.nums i.sup{color:var(--cmp);background:var(--card);border:1px solid currentColor;border-radius:5px;padding:0 5px;font-weight:700;font-size:11px;display:inline-flex;align-items:center;gap:1px}
+.nums i.sup.pr{color:var(--gold);background:var(--card)}
+/* ⚠ 使用者 2026-09-09 給了鏢靶圖：紅白相間的同心圓，不是細線圈。
    靶的大小固定，程度決定「亮到第幾層」：
-     1 級 只有外圈　2 級 外圈＋第二環　3 級 再點亮中心點（最嚴重） */
-.nums i.sup .tgt{display:inline-block;width:3px;height:3px;border-radius:50%;
-  background:transparent;vertical-align:middle;margin-left:8px;margin-right:6px}
-.nums i.sup .tgt.t1{box-shadow:0 0 0 4.2px transparent,0 0 0 5.3px currentColor}
-.nums i.sup .tgt.t2{box-shadow:0 0 0 1.6px transparent,0 0 0 2.7px currentColor,
-  0 0 0 4.2px transparent,0 0 0 5.3px currentColor}
-.nums i.sup .tgt.t3{background:currentColor;
-  box-shadow:0 0 0 1.6px transparent,0 0 0 2.7px currentColor,
-  0 0 0 4.2px transparent,0 0 0 5.3px currentColor}
+     1 級 只有最外圈紅環　2 級 外圈＋第二環　3 級 再點亮紅色靶心（最嚴重）
+   白色帶用 var(--surface) 而不是寫死 #fff —— 深色模式才不會變成一坨紅。 */
+.nums i.sup .tgt{display:inline-block;width:13px;height:13px;border-radius:50%;
+  vertical-align:-2px;margin-left:6px;flex:none}
+.nums i.sup .tgt.t1{background:radial-gradient(circle,
+  var(--surface) 0 66%, currentColor 66% 100%)}
+.nums i.sup .tgt.t2{background:radial-gradient(circle,
+  var(--surface) 0 34%, currentColor 34% 56%,
+  var(--surface) 56% 74%, currentColor 74% 100%)}
+.nums i.sup .tgt.t3{background:radial-gradient(circle,
+  currentColor 0 24%, var(--surface) 24% 42%, currentColor 42% 60%,
+  var(--surface) 60% 76%, currentColor 76% 100%)}
 </style>
 </head>
 <body>

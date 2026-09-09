@@ -157,17 +157,17 @@ td.q{color:var(--dim);min-width:260px}
 .dchip b{color:var(--ink)}
 .dchip i{font-style:normal;color:var(--dim);font-size:11px;margin-left:4px}
 .dnone{font-size:12.5px;color:var(--dim)}
-/* ⚠ 使用者 2026-09-09：「顯示中心點時，表示最嚴重」——
-   所以中心的實心點只有第 3 級才點亮，1~2 級是空心靶。 */
+/* ⚠ 使用者 2026-09-09：「外圈, 第二環, 中心點」——
+   靶的大小固定，程度決定「亮到第幾層」：
+     1 級 只有外圈　2 級 外圈＋第二環　3 級 再點亮中心點（最嚴重） */
 .nums i.sup .tgt{display:inline-block;width:3px;height:3px;border-radius:50%;
-  background:transparent;vertical-align:middle;margin-left:7px}
-.nums i.sup .tgt.t3{background:currentColor}
-.nums i.sup .tgt.t1{box-shadow:0 0 0 1.5px transparent,0 0 0 2.6px currentColor;margin-right:2px}
-.nums i.sup .tgt.t2{box-shadow:0 0 0 1.5px transparent,0 0 0 2.6px currentColor,
-  0 0 0 4.1px transparent,0 0 0 5.2px currentColor;margin-right:4px}
-.nums i.sup .tgt.t3{box-shadow:0 0 0 1.5px transparent,0 0 0 2.6px currentColor,
-  0 0 0 4.1px transparent,0 0 0 5.2px currentColor,
-  0 0 0 6.7px transparent,0 0 0 7.8px currentColor;margin-right:7px}
+  background:transparent;vertical-align:middle;margin-left:8px;margin-right:6px}
+.nums i.sup .tgt.t1{box-shadow:0 0 0 4.2px transparent,0 0 0 5.3px currentColor}
+.nums i.sup .tgt.t2{box-shadow:0 0 0 1.6px transparent,0 0 0 2.7px currentColor,
+  0 0 0 4.2px transparent,0 0 0 5.3px currentColor}
+.nums i.sup .tgt.t3{background:currentColor;
+  box-shadow:0 0 0 1.6px transparent,0 0 0 2.7px currentColor,
+  0 0 0 4.2px transparent,0 0 0 5.3px currentColor}
 </style>
 </head>
 <body>
@@ -457,11 +457,13 @@ var REL = {"built": "2026-09-09 09:47", "asof": "2026-09-08", "nodes": [{"id": "
         //   粗細要兩個圈擺在一起才比得出來，數量用數的就知道。
         ctx.strokeStyle = isPr ? css("--gold") : css("--cmp");
         ctx.lineWidth = 1.6;
-        for(var ri = 0; ri < lv; ri++){
-          ctx.globalAlpha = on ? (1 - ri * 0.16) : .07;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, r + 3 + ri * 3.4, 0, 6.2832);
-          ctx.stroke();
+        // 靶的大小固定，程度決定亮到第幾層：
+        //   1 級 外圈／2 級 加第二環／3 級 再點亮中心點
+        ctx.globalAlpha = on ? 1 : .07;
+        ctx.beginPath(); ctx.arc(p.x, p.y, r + 6.4, 0, 6.2832); ctx.stroke();
+        if(lv >= 2){
+          ctx.globalAlpha = on ? .85 : .07;
+          ctx.beginPath(); ctx.arc(p.x, p.y, r + 3, 0, 6.2832); ctx.stroke();
         }
         // ⚠ 使用者 2026-09-09：「顯示中心點時，表示最嚴重」——
         //   靶心只有第 3 級（緊張度 >=70）才點亮。

@@ -188,6 +188,8 @@ td.q{color:var(--dim);min-width:260px}
   <label class="tog"><input type="checkbox" id="L3" checked>大題材連線</label>
   <select id="rk"><option value="">全部關係</option></select>
   <label class="tog"><input type="checkbox" id="iso">只看有報告佐證的</label>
+  <!-- 使用者 2026-09-10：「按他時在顯示, 前中後顯示, 而不要亂跑」 -->
+  <label class="tog on"><input type="checkbox" id="fx" checked>聚焦：上游←中→下游</label>
 </div>
 
 
@@ -389,6 +391,93 @@ var REL = {"built": "2026-09-09 22:14", "asof": "2026-09-09", "nodes": [{"id": "
   }
   layout(260);
 
+  // ── 聚焦模式：點誰就把誰擺中間，上游在左、下游在右 ──────────────
+  //   使用者 2026-09-10：「你的產業關聯圖譜真的不好用…按他時在顯示，
+  //   前中後顯示，而不要亂跑」。
+  //   力導向圖的問題是：位置每次都不一樣、看不出方向、而且一次畫 651 個節點
+  //   全部糊在一起。聚焦模式改成**確定性的分層版面** ——
+  //   只畫被點的那一檔與它的直接關聯，位置由關係算出來，不會亂跑。
+  //     左欄 上游（它跟誰買、誰供應它）
+  //     中間 它自己
+  //     右欄 下游（它供應給誰）
+  //     上帶 所屬題材　下帶 同業
+  var UPR = {"採購自":1, "受制於":1};              // 主體 -> 上游
+  var DOWNR = {"供應給":1, "代理":1, "認證中":1};   // 主體 -> 下游
+  var fpos = {}, fset = null, fcols = null;
+  function focusOf(id){
+    // 回傳 {up:[], down:[], peer:[], theme:[]}，元素是 {n, e}
+    var out = {up:[], down:[], peer:[], theme:[]};
+    (adj[id] || []).filter(visibleEdge).forEach(function(e){
+      var isOut = e.s === id, other = byId[isOut ? e.o : e.s];
+      if(!other) return;
+      var b;
+      if(other.t === "題材" || e.L === "大題材") b = "theme";
+      else if(UPR[e.r]) b = isOut ? "up" : "down";
+      else if(DOWNR[e.r]) b = isOut ? "down" : "up";
+      else b = "peer";
+      if(!out[b].some(function(x){ return x.n.id === other.id; }))
+        out[b].push({n:other, e:e});
+    });
+    ["up", "down", "peer", "theme"].forEach(function(k){
+      // 有報告佐證的排前面，其次連結度高的 —— 順序固定，重畫不會跳
+      out[k].sort(function(a, b){
+        return (b.e.L === "報告") - (a.e.L === "報告") ||
+               (b.n.deg||0) - (a.n.deg||0) ||
+               (a.n.n < b.n.n ? -1 : 1);
+      });
+    });
+    return out;
+  }
+  function focusLayout(id){
+    var c = focusOf(id);
+    fcols = c;
+    fset = {}; fset[id] = 1;
+    fpos = {}; fpos[id] = {x:0, y:0};
+    var GAP = 30, COLX = 250;
+    function col(list, x){
+      var k = list.length;
+      list.forEach(function(o, i){
+        fpos[o.n.id] = {x:x, y:(i - (k - 1) / 2) * GAP};
+        fset[o.n.id] = 1;
+      });
+      return k;
+    }
+    var ku = col(c.up, -COLX), kd = col(c.down, COLX);
+    var half = Math.max(ku, kd, 1) / 2 * GAP;
+    // ⚠ 題材名稱很長（「AI 機櫃板載／記憶體與企業級 SSD」），一排塞 6 個
+    //   字會疊在一起。一排 4 個、間距 210，多的往外再排一列。
+    function band(list, y, dir){
+      var k = list.length, PER = 4;
+      list.forEach(function(o, i){
+        var row = Math.floor(i / PER), j = i % PER;
+        var m = Math.min(PER, k - row * PER);
+        fpos[o.n.id] = {x:(j - (m - 1) / 2) * 210, y:y + row * 46 * dir};
+        fset[o.n.id] = 1;
+      });
+    }
+    band(c.theme, -(half + 118), -1);
+    band(c.peer, half + 96, 1);
+  }
+  function fitFocus(){
+    var xs = [], ys = [];
+    Object.keys(fpos).forEach(function(k){
+      xs.push(fpos[k].x); ys.push(fpos[k].y);
+    });
+    if(!xs.length) return;
+    var pad = 90;
+    var w = Math.max(1, Math.max.apply(null, xs) - Math.min.apply(null, xs)) + pad * 2;
+    var h = Math.max(1, Math.max.apply(null, ys) - Math.min.apply(null, ys)) + pad * 2;
+    view.s = Math.max(.45, Math.min(1.5, Math.min(W / w, H / h)));
+    var cx = (Math.max.apply(null, xs) + Math.min.apply(null, xs)) / 2;
+    var cy = (Math.max.apply(null, ys) + Math.min.apply(null, ys)) / 2;
+    view.x = -cx * view.s; view.y = -cy * view.s;
+  }
+  function focusOn(){
+    var el = document.getElementById("fx");
+    return !!(el && el.checked && sel && fset);
+  }
+  function POS(id){ return focusOn() ? fpos[id] : pos[id]; }
+
   var view = {x:0, y:0, s:1}, sel = null, dim = false, hot = null, filt = "";
   function radius(n){ return 4 + Math.min(9, Math.sqrt(n.deg) * 2.2); }
   function nodeColor(n){
@@ -417,22 +506,64 @@ var REL = {"built": "2026-09-09 22:14", "asof": "2026-09-09", "nodes": [{"id": "
   }
   function T(p){ return {x: p.x*view.s + view.x + W/2, y: p.y*view.s + view.y + H/2}; }
 
+  // 聚焦模式的欄位標題與分隔線 —— 沒有這個，使用者看不出左邊是上游
+  function drawFocusFrame(){
+    if(!fcols) return;
+    var mid = T({x:0, y:0});
+    ctx.save();
+    ctx.font = "700 12px system-ui,sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillStyle = css("--mut");
+    var L = T({x:-250, y:0}), R = T({x:250, y:0});
+    var lbl = [
+      [L.x, "↑ 上游供應商　" + fcols.up.length],
+      [mid.x, "這一檔"],
+      [R.x, "↓ 下游客戶　" + fcols.down.length]
+    ];
+    lbl.forEach(function(o){ ctx.fillText(o[1], o[0], 16); });
+    // 題材／同業的標題貼著它們那一帶畫，不要用固定 y（會跟欄位標題疊）
+    if(fcols.theme.length){
+      var t0 = fpos[fcols.theme[0].n.id];
+      if(t0) ctx.fillText("⊂ 所屬題材　" + fcols.theme.length,
+                          mid.x, T(t0).y - 26);
+    }
+    if(fcols.peer.length){
+      var p0 = fpos[fcols.peer[0].n.id];
+      if(p0) ctx.fillText("↔ 同業　" + fcols.peer.length,
+                          mid.x, T(p0).y + 34);
+    }
+    ctx.strokeStyle = css("--mut");
+    ctx.globalAlpha = .16; ctx.lineWidth = 1;
+    [(L.x + mid.x) / 2, (mid.x + R.x) / 2].forEach(function(x){
+      ctx.beginPath(); ctx.moveTo(x, 8); ctx.lineTo(x, H - 8); ctx.stroke();
+    });
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
   function draw(){
     ctx.clearRect(0,0,W,H);
+    var FOC = focusOn();
     var vis = E.filter(visibleEdge);
+    // 聚焦模式只留「被點的那一檔」與它的直接關聯，其他全部不畫
+    if(FOC) vis = vis.filter(function(e){
+      return (e.s === sel || e.o === sel) && fset[e.s] && fset[e.o]; });
     var live = {};
     vis.forEach(function(e){ live[e.s]=1; live[e.o]=1; });
+    if(FOC){ live[sel] = 1; drawFocusFrame(); }
     // ⚠ 只有「使用者主動點了節點」才把其他人淡掉。一進來就淡掉的話，
     //   整張圖看起來像沒載入（2026-09-08 使用者回報「怎麼按都沒資料」的第二層問題）。
     var near = null;
-    if(sel && dim){
+    if(FOC) near = null;              // 聚焦模式本來就只剩相關的，不用再淡化
+    else if(sel && dim){
       near = {}; near[sel] = 1;
       (adj[sel]||[]).forEach(function(e){
         if(visibleEdge(e)){ near[e.s]=1; near[e.o]=1; } });
     }
 
     vis.forEach(function(e){
-      var a = T(pos[e.s]), b = T(pos[e.o]);
+      if(!POS(e.s) || !POS(e.o)) return;
+      var a = T(POS(e.s)), b = T(POS(e.o));
       var on = !near || (near[e.s] && near[e.o]);
       ctx.strokeStyle = css("--" + ({sup:"sup",cmp:"cmp",thm:"thm",oth:"oth"}[kcls(e.r)]));
       ctx.globalAlpha = on ? (e.L === "報告" ? .8 : .32) : .07;
@@ -442,8 +573,9 @@ var REL = {"built": "2026-09-09 22:14", "asof": "2026-09-09", "nodes": [{"id": "
     ctx.globalAlpha = 1;
 
     N.forEach(function(n){
-      if(!live[n.id]) return;
-      var p = T(pos[n.id]), r = radius(n) * Math.min(1.6, view.s);
+      if(!live[n.id] || !POS(n.id)) return;
+      var p = T(POS(n.id)), r = radius(n) * Math.min(1.6, view.s);
+      if(FOC) r = n.id === sel ? 11 : 7;    // 聚焦模式大小固定，看得清楚
       var on = !near || near[n.id], hit = match(n);
       ctx.globalAlpha = on ? 1 : .13;
       ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 6.2832);
@@ -483,7 +615,7 @@ var REL = {"built": "2026-09-09 22:14", "asof": "2026-09-09", "nodes": [{"id": "
       }
       // 有選取時：選中的與它的鄰居一律標名字（那才是要看的東西）；
       // 沒選取時才退回「只標連結多的」，否則 369 個節點會糊成一片。
-      var big = (near ? near[n.id] : (n.deg >= 4 || view.s > 1.3))
+      var big = FOC || (near ? near[n.id] : (n.deg >= 4 || view.s > 1.3))
                 || hit || n.id === sel;
       if(big && on){
         var tag = n.sup ? ("　" + n.sup.k)   // 程度靠外圈的圈數，不重複
@@ -501,9 +633,12 @@ var REL = {"built": "2026-09-09 22:14", "asof": "2026-09-09", "nodes": [{"id": "
   }
 
   function pick(mx,my){
-    var best = null, bd = 16*16;
+    var best = null, bd = 16*16, FOC = focusOn();
     N.forEach(function(n){
-      var p = T(pos[n.id]), dx = p.x-mx, dy = p.y-my, d = dx*dx+dy*dy;
+      if(FOC && !fset[n.id]) return;      // 聚焦模式只點得到畫出來的
+      var q = POS(n.id);
+      if(!q) return;
+      var p = T(q), dx = p.x-mx, dy = p.y-my, d = dx*dx+dy*dy;
       if(d < bd){ bd = d; best = n; }
     });
     return best;
@@ -555,7 +690,13 @@ var REL = {"built": "2026-09-09 22:14", "asof": "2026-09-09", "nodes": [{"id": "
     opt = opt || {};
     sel = id; dim = !opt.nodim;
     var n = byId[id], box = document.getElementById("side");
-    if(opt.center && pos[id]){          // 搜尋命中時把它移到畫面中央
+    // 聚焦模式：每次選都重算分層版面，並自動把整組框進畫面。
+    //   位置由關係決定，所以同一檔每次點開長得一模一樣（不會亂跑）。
+    if(byId[id] && document.getElementById("fx") &&
+       document.getElementById("fx").checked){
+      focusLayout(id);
+      fitFocus();
+    } else if(opt.center && pos[id]){    // 搜尋命中時把它移到畫面中央
       view.x = -pos[id].x * view.s; view.y = -pos[id].y * view.s;
     }
     if(!n){ box.innerHTML = "<div class='empty'>點圖上的節點，或用上面的搜尋框。</div>";
@@ -803,8 +944,18 @@ var REL = {"built": "2026-09-09 22:14", "asof": "2026-09-09", "nodes": [{"id": "
   }, {passive:false});
 
   function refresh(){ draw(); table(); }
-  ["L1","L2","L3","iso"].forEach(function(id){
-    document.getElementById(id).addEventListener("change", refresh);
+  ["L1","L2","L3","iso","fx"].forEach(function(id){
+    document.getElementById(id).addEventListener("change", function(){
+      // 切換聚焦模式要重算版面（回到自由圖時把視角拉回全景）
+      if(id === "fx"){
+        var on = document.getElementById("fx").checked;
+        document.querySelector('label.tog input#fx').parentElement
+          .classList.toggle("on", on);
+        if(on && sel && byId[sel]){ focusLayout(sel); fitFocus(); }
+        else { view = {x:0, y:0, s:1}; fset = null; }
+      }
+      refresh();
+    });
   });
   rk.addEventListener("change", refresh);
   document.getElementById("q").addEventListener("input", function(ev){

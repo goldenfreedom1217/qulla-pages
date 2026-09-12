@@ -5,3 +5,9 @@
 *.json
 *.py
 *.log
+
+# 例外：個股線型的分桶檔（build_gates --lazy-charts 產的）。
+#   網頁改成「點開個股才抓」，這些是網站要對外提供的資料，必須推上去；
+#   沒有這一行會被上面的 *.json 擋掉，git 不會警告，網站就永遠抓不到線型。
+!charts/
+!charts/*.json

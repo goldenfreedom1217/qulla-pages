@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>高爾夫計分卡</title>
+<style>
+:root{--bg:#0f1a14;--card:#16261d;--line:#2a4134;--tx:#e8efe9;--mut:#8fa697;--gold:#d4af37;
+  --eagle:#f5c542;--birdie:#e04848;--par:#e8efe9;--bogey:#4a90d9;--dbl:#2d5fa0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 -apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
+  padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+header{padding:14px 16px 8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+h1{margin:0;font-size:20px;color:var(--gold);flex:1 1 100%}
+input,button,select{font:inherit;font-size:16px;color:var(--tx);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+input.course{flex:1 1 180px}
+button{cursor:pointer}
+button.pri{background:var(--gold);color:#111;border-color:var(--gold);font-weight:600}
+.players{padding:0 16px 8px;display:flex;gap:6px;flex-wrap:wrap}
+.players input{width:7.5em}
+.tabs{display:flex;gap:6px;padding:0 16px 10px}
+.tabs button.on{background:var(--gold);color:#111}
+.wrap{overflow-x:auto;padding:0 8px 12px}
+table{border-collapse:collapse;min-width:100%;font-size:14px}
+th,td{border:1px solid var(--line);text-align:center;padding:6px 4px;white-space:nowrap}
+th{background:#1d3226;color:var(--mut);font-weight:500}
+td.nm{text-align:left;padding-left:8px;position:sticky;left:0;background:var(--card);z-index:1;font-weight:600}
+th.nm{position:sticky;left:0;z-index:2}
+td.sum{background:#1d3226;font-weight:700}
+td.sc{cursor:pointer;min-width:34px}
+td.sc span{display:inline-block;min-width:24px;height:24px;line-height:22px}
+.eagle span{border:2px double var(--eagle);border-radius:50%;color:var(--eagle)}
+.birdie span{border:2px solid var(--birdie);border-radius:50%;color:var(--birdie)}
+.bogey span{border:2px solid var(--bogey);color:var(--bogey)}
+.dbl span{border:3px double var(--dbl);color:#7fb0ef}
+td.par{cursor:pointer;color:var(--gold)}
+td.sc sub{display:block;font-size:10px;color:var(--mut);line-height:1;margin-top:1px}
+#pad .lb{color:var(--mut);font-size:13px;margin:8px 0 4px}
+#pad .g6{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+#pad .g6 button{padding:10px 0;font-size:18px}
+#pad .g6 button.sel{background:var(--gold);color:#111}
+#pad .g6 small{display:block;font-size:10px}
+#pad details summary{color:var(--mut);font-size:13px;margin-top:10px;cursor:pointer}
+.tot{padding:4px 16px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.tot div{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px}
+.tot b{font-size:24px;color:var(--gold)}
+.tot small{color:var(--mut)}
+.legend{padding:0 16px 20px;color:var(--mut);font-size:13px}
+/* 輸入面板 */
+#pad{position:fixed;inset:auto 0 0 0;background:#0b130e;border-top:1px solid var(--line);padding:12px 16px calc(16px + env(safe-area-inset-bottom));
+  transform:translateY(110%);transition:transform .18s}
+#pad.show{transform:none}
+#pad .t{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+#pad .g{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+#pad .g button{padding:14px 0;font-size:20px}
+#pad .row{display:flex;gap:8px;margin-top:8px}
+#pad .row button{flex:1}
+@media print{header button,.tabs,#pad,.legend{display:none}body{background:#fff;color:#000}
+  td.nm,th,td.sum,.tot div{background:#fff;color:#000}}
+</style>
+</head>
+<body>
+<header>
+  <h1>⛳ 高爾夫計分卡</h1>
+  <input class="course" id="course" placeholder="球場名稱">
+  <input type="date" id="date">
+  <button id="addP">＋球友</button>
+  <button id="print">列印</button>
+  <button id="reset">新的一場</button>
+</header>
+<div class="players" id="players"></div>
+<div class="tabs">
+  <button data-v="out" class="on">前九 OUT</button>
+  <button data-v="in">後九 IN</button>
+  <button data-v="all">全部 18 洞</button>
+</div>
+<div class="wrap"><table id="tb"></table></div>
+<div class="tot" id="tot"></div>
+<div class="legend">點格子輸入「幾 on 幾推」（格子下方小字＝推桿數），也可直接填總桿；點 Par 那列可改標準桿。
+  ◎ 老鷹以下　○ 博蒂　無框 平標準桿　□ 柏忌　▣ 雙柏忌以上。資料只存在這台裝置。</div>
+
+<div id="pad">
+  <div class="t"><b id="padT"></b><button id="padX">關閉</button></div>
+  <div id="padG"></div>
+  <div class="row"><button id="padClr">清除</button><button id="padPrev">◀ 上一洞</button><button id="padNext" class="pri">下一洞 ▶</button></div>
+</div>
+
+<script>
+(function(){
+var KEY = "golf-scorecard-v1";
+var DEF_PAR = [4,4,3,4,5,4,3,4,5, 4,4,3,5,4,4,3,4,5];
+function today(){ var d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0,10); }
+function blank(){
+  return {course:"", date:today(), par:DEF_PAR.slice(),
+          players:[newP("我")]};
+}
+function newP(nm){
+  return {nm:nm, s:Array(18).fill(null), on:Array(18).fill(null), pt:Array(18).fill(null)};
+}
+var S;
+try{ S = JSON.parse(localStorage.getItem(KEY)) || blank(); }catch(e){ S = blank(); }
+S.players.forEach(function(p){ if(!p.on) p.on = Array(18).fill(null); if(!p.pt) p.pt = Array(18).fill(null); });
+var view = "out", cur = null;   // cur = {p:球員, h:洞, par:是否改標準桿}
+
+function save(){ localStorage.setItem(KEY, JSON.stringify(S)); }
+function sum(a, from, to){ var t = 0, n = 0; for(var i = from; i < to; i++){ if(a[i] != null){ t += a[i]; n++; } } return {t:t, n:n}; }
+function cls(sc, par){
+  if(sc == null) return "";
+  var d = sc - par;
+  return d <= -2 ? "eagle" : d == -1 ? "birdie" : d == 0 ? "" : d == 1 ? "bogey" : "dbl";
+}
+function toPar(p){
+  var d = 0, n = 0;
+  for(var i = 0; i < 18; i++){ if(p.s[i] != null){ d += p.s[i] - S.par[i]; n++; } }
+  return {d:d, n:n};
+}
+function fmt(d){ return d == 0 ? "E" : (d > 0 ? "+" + d : "" + d); }
+
+function render(){
+  document.getElementById("course").value = S.course;
+  document.getElementById("date").value = S.date;
+  // 球員名
+  document.getElementById("players").innerHTML = S.players.map(function(p, i){
+    return '<input data-i="' + i + '" value="' + p.nm.replace(/"/g, "&quot;") + '" placeholder="球員' + (i + 1) + '">' +
+      (S.players.length > 1 ? '<button data-del="' + i + '">✕</button>' : "");
+  }).join("");
+  // 表格
+  var holes = view == "out" ? [[0, 9, "OUT"]] : view == "in" ? [[9, 18, "IN"]] : [[0, 9, "OUT"], [9, 18, "IN"]];
+  var h = '<tr><th class="nm">洞</th>';
+  holes.forEach(function(g){ for(var i = g[0]; i < g[1]; i++) h += "<th>" + (i + 1) + "</th>"; h += "<th>" + g[2] + "</th>"; });
+  if(view == "all") h += "<th>TOT</th>";
+  h += '</tr><tr><td class="nm">Par</td>';
+  holes.forEach(function(g){ for(var i = g[0]; i < g[1]; i++) h += '<td class="par" data-h="' + i + '">' + S.par[i] + "</td>";
+    h += '<td class="sum">' + sum(S.par, g[0], g[1]).t + "</td>"; });
+  if(view == "all") h += '<td class="sum">' + sum(S.par, 0, 18).t + "</td>";
+  h += "</tr>";
+  S.players.forEach(function(p, pi){
+    h += '<tr><td class="nm">' + (p.nm || "球員" + (pi + 1)) + "</td>";
+    holes.forEach(function(g){
+      for(var i = g[0]; i < g[1]; i++){
+        h += '<td class="sc ' + cls(p.s[i], S.par[i]) + '" data-p="' + pi + '" data-h="' + i + '"><span>' + (p.s[i] == null ? "" : p.s[i]) + "</span>" + (p.pt[i] == null ? "" : "<sub>" + p.pt[i] + "推</sub>") + "</td>";
+      }
+      var s = sum(p.s, g[0], g[1]); h += '<td class="sum">' + (s.n ? s.t : "") + "</td>";
+    });
+    if(view == "all"){ var s = sum(p.s, 0, 18); h += '<td class="sum">' + (s.n ? s.t : "") + "</td>"; }
+    h += "</tr>";
+  });
+  document.getElementById("tb").innerHTML = h;
+  // 總結
+  document.getElementById("tot").innerHTML = S.players.map(function(p, pi){
+    var s = sum(p.s, 0, 18), tp = toPar(p), c = {e:0, b:0, p:0, bo:0, d:0};
+    for(var i = 0; i < 18; i++){ if(p.s[i] == null) continue; var d = p.s[i] - S.par[i];
+      if(d <= -2) c.e++; else if(d == -1) c.b++; else if(d == 0) c.p++; else if(d == 1) c.bo++; else c.d++; }
+    var pt = sum(p.pt, 0, 18), gir = 0, gn = 0, p3 = 0;
+    for(var i = 0; i < 18; i++){
+      if(p.on[i] != null){ gn++; if(p.on[i] <= S.par[i] - 2) gir++; }
+      if(p.pt[i] != null && p.pt[i] >= 3) p3++;
+    }
+    var pline = pt.n ? "<br><small>推桿 " + pt.t + "（" + pt.n + " 洞，平均 " + (pt.t / pt.n).toFixed(1) + "）・標準桿上果嶺 " + gir + "/" + gn + "・三推以上 " + p3 + "</small>" : "";
+    return "<div>" + (p.nm || "球員" + (pi + 1)) + "<br><b>" + (s.n ? s.t : "—") + "</b> " +
+      (tp.n ? "<small>(" + fmt(tp.d) + "，已打 " + tp.n + " 洞)</small>" : "") +
+      "<br><small>老鷹 " + c.e + "・博蒂 " + c.b + "・平 " + c.p + "・柏忌 " + c.bo + "・雙柏忌+ " + c.d + "</small>" + pline + "</div>";
+  }).join("");
+  save();
+}
+
+// 輸入面板
+function lab(d){ return d <= -3 ? "信天翁" : d == -2 ? "老鷹" : d == -1 ? "博蒂" : d == 0 ? "Par" : d == 1 ? "柏忌" : d == 2 ? "雙柏忌" : "+" + d; }
+function openPad(c){
+  cur = c; cur.on = null;
+  var g = document.getElementById("padG"), par = S.par[c.h];
+  if(c.par){
+    g.innerHTML = '<div class="g">' + [3, 4, 5, 6].map(function(n){ return '<button data-n="' + n + '">' + n + "</button>"; }).join("") + "</div>";
+    document.getElementById("padT").textContent = "第 " + (c.h + 1) + " 洞 標準桿";
+  } else {
+    var P = S.players[c.p];
+    cur.on = P.on[c.h];
+    g.innerHTML =
+      '<div class="lb">第幾桿上果嶺（on）</div><div class="g6" id="gOn">' +
+      [1, 2, 3, 4, 5, 6].map(function(n){
+        return '<button data-on="' + n + '"' + (P.on[c.h] == n ? ' class="sel"' : "") + ">" + n + "<small>" + (n <= par - 2 ? "標 on" : "&nbsp;") + "</small></button>";
+      }).join("") + "</div>" +
+      '<div class="lb">幾推（0＝切進／打進）</div><div class="g6" id="gPt">' +
+      [0, 1, 2, 3, 4, 5].map(function(n){ return '<button data-pt="' + n + '"' + (P.pt[c.h] == n ? ' class="sel"' : "") + ">" + n + "</button>"; }).join("") + "</div>" +
+      "<details><summary>不記推桿，直接填總桿</summary><div class=\"g\" style=\"margin-top:8px\">" +
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(function(n){
+        return '<button data-n="' + n + '">' + n + '<br><small style="font-size:11px">' + lab(n - par) + "</small></button>";
+      }).join("") + "</div></details>";
+    document.getElementById("padT").textContent = (P.nm || "球員" + (c.p + 1)) + "・第 " + (c.h + 1) + " 洞（Par " + par + "）";
+  }
+  document.getElementById("pad").classList.add("show");
+}
+function setVal(n){
+  if(cur.par) S.par[cur.h] = n;
+  else { var P = S.players[cur.p]; P.s[cur.h] = n; P.on[cur.h] = null; P.pt[cur.h] = null; }
+  render();
+}
+function setOnPt(on, pt){
+  var P = S.players[cur.p];
+  P.on[cur.h] = on; P.pt[cur.h] = pt; P.s[cur.h] = on + pt;
+  render();
+}
+function move(step){
+  var h = cur.h + step;
+  if(h < 0 || h > 17){ closePad(); return; }
+  if(h >= 9 && view == "out") view = "in"; if(h < 9 && view == "in") view = "out";
+  syncTabs(); render(); openPad({p:cur.p, h:h, par:cur.par});
+}
+function closePad(){ document.getElementById("pad").classList.remove("show"); cur = null; }
+function syncTabs(){ document.querySelectorAll(".tabs button").forEach(function(b){ b.classList.toggle("on", b.dataset.v == view); }); }
+
+document.getElementById("padG").addEventListener("click", function(e){
+  var b = e.target.closest("button"); if(!b) return;
+  if(b.dataset.on){
+    cur.on = +b.dataset.on;
+    document.querySelectorAll("#gOn button").forEach(function(x){ x.classList.toggle("sel", x == b); });
+    return;
+  }
+  if(b.dataset.pt != null){
+    if(cur.on == null){ alert("先選第幾桿上果嶺"); return; }
+    setOnPt(cur.on, +b.dataset.pt); move(1); return;
+  }
+  setVal(+b.dataset.n); move(1);
+});
+document.getElementById("padClr").onclick = function(){ if(!cur.par) setVal(null); };
+document.getElementById("padPrev").onclick = function(){ move(-1); };
+document.getElementById("padNext").onclick = function(){ move(1); };
+document.getElementById("padX").onclick = closePad;
+
+document.getElementById("tb").addEventListener("click", function(e){
+  var td = e.target.closest("td"); if(!td) return;
+  if(td.classList.contains("sc")) openPad({p:+td.dataset.p, h:+td.dataset.h});
+  else if(td.classList.contains("par")) openPad({h:+td.dataset.h, par:true});
+});
+// iPhone Safari 不會對 td 發 click：手指放開且沒滑動就自己補發一次
+var tx = 0, ty = 0, tt = 0;
+document.getElementById("tb").addEventListener("touchstart", function(e){
+  var t = e.touches[0]; tx = t.clientX; ty = t.clientY; tt = Date.now();
+}, {passive:true});
+document.getElementById("tb").addEventListener("touchend", function(e){
+  var t = e.changedTouches[0];
+  if(Math.abs(t.clientX - tx) > 10 || Math.abs(t.clientY - ty) > 10 || Date.now() - tt > 700) return;
+  var td = e.target.closest("td.sc,td.par"); if(!td) return;
+  e.preventDefault(); td.click();
+}, {passive:false});
+
+document.querySelector(".tabs").addEventListener("click", function(e){
+  var b = e.target.closest("button"); if(!b) return; view = b.dataset.v; syncTabs(); render();
+});
+document.getElementById("players").addEventListener("change", function(e){
+  if(e.target.dataset.i != null){ S.players[+e.target.dataset.i].nm = e.target.value.trim(); render(); }
+});
+document.getElementById("players").addEventListener("click", function(e){
+  var d = e.target.dataset.del; if(d == null) return;
+  if(confirm("刪除「" + (S.players[+d].nm || "球員") + "」？")){ S.players.splice(+d, 1); render(); }
+});
+document.getElementById("addP").onclick = function(){
+  if(S.players.length >= 4){ alert("一組最多 4 位"); return; }
+  S.players.push(newP("")); render();
+};
+// 查證過的球場標準桿（輸入球場名稱含關鍵字時套用）
+var COURSES = [
+  {key:"老爺", nm:"老爺關西", par:[4,4,3,5,4,4,3,5,4, 4,5,3,4,4,4,4,3,5]},  // 18birdies 記分卡＋官網球道攻略，2026-10-31 查
+  {key:"龍潭", nm:"龍潭",     par:[4,4,3,5,4,4,3,5,4, 4,4,3,4,5,4,3,4,5]}   // GolfPass＋Hole19 記分卡逐洞一致，2026-11-07 查
+];
+document.getElementById("course").onchange = function(){
+  S.course = this.value;
+  var v = this.value;
+  COURSES.forEach(function(c){
+    if(v.indexOf(c.key) >= 0 && S.par.join() != c.par.join() && confirm("套用「" + c.nm + "」的標準桿？（Par " + c.par.reduce(function(a, b){ return a + b; }) + "）")){
+      S.par = c.par.slice(); render();
+    }
+  });
+  save();
+};
+document.getElementById("date").onchange = function(){ S.date = this.value; save(); };
+document.getElementById("print").onclick = function(){ view = "all"; syncTabs(); render(); setTimeout(function(){ window.print(); }, 50); };
+document.getElementById("reset").onclick = function(){
+  if(!confirm("清空所有桿數開始新的一場？（球員名與標準桿保留）")) return;
+  S.players.forEach(function(p){ p.s = Array(18).fill(null); p.on = Array(18).fill(null); p.pt = Array(18).fill(null); });
+  S.date = today(); render();
+};
+render();
+})();
+</script>
+</body>
+</html>
